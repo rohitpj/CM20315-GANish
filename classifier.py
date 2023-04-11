@@ -1,4 +1,4 @@
-#importing required libraries..
+#the bit that shows the model doesn't work but doesn't rlly work lol
 import torch
 import numpy as np
 import torch.nn as nn
