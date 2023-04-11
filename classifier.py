@@ -1,4 +1,4 @@
-#the bit that shows the model doesn't work but doesn't rlly work lol
+#the bit that shows the model doesn't work but doesn't rlly matter lol
 import torch
 import numpy as np
 import torch.nn as nn
