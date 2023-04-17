@@ -640,7 +640,7 @@ def parse_args():
     parser.add_argument('--beta2', type=float, default=0.999)
     parser.add_argument('--gpu_mode', type=bool, default=True)
     parser.add_argument('--benchmark_mode', type=bool, default=True)
-    parser.add_argument('--gen_target', type=int, default=9)
+    parser.add_argument('--gen_target', type=int, default=1)
 
     return check_args(parser.parse_args(args=[]))
 
