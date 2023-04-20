@@ -101,26 +101,7 @@ def loss_plot(hist, path = 'Train_hist.png', model_name = ''):
 
     plt.close()
 
-"""## The generator network. 
-class generator(nn.Module):
-    def __init__(self, input_dim=100, output_dim=1, input_size=32, batch_size=1):
-        super(generator, self).__init__()
-        self.input_dim = input_dim
-        self.output_dim = output_dim
-        self.input_size = input_size
-        self.batch_size = batch_size
 
-        ## Create a simple ANN that takes as input self.input_dim has a hidden layer and returns (1 * 28 * 28 )
-        ## -- Don't forget batch size ( which is handled automatically )
-
-        
-
-    def forward(self, input):
-        x = ## Complete using what you've defined in __init__
-        ## The output is a long vector of size 1 * 28 * 28, reshape to image dimentions before return here (again, don't forget batch size). 
-        x = ## Complete
-        return x
-"""
 class generator(nn.Module):
     def __init__(self, input_dim=100, output_dim=1, input_size=32, batch_size=1):
         super(generator, self).__init__()
@@ -147,6 +128,7 @@ discriminator.load_state_dict(torch.load('model.pt'))
 
 # This is the main trainer class that will generate the image.
 
+# This is the main trainer class that will generate the image.
 class GANish(object):
     def __init__(self, args):
         self.batch_size = args.batch_size
@@ -159,24 +141,25 @@ class GANish(object):
         self.input_size = args.input_size
         self.z_dim = 100
         self.gen_target= args.gen_target
-
+        print(self.gen_target)
         # Load the trained discriminator here
 
         self.D = Classifier()
         #self.D = discriminator(x=self.input_size)
-        self.D.load_state_dict(torch.load('model.pt'))
+        self.D.load_state_dict(torch.load('new_model.pt'))
 
         # networks init
         self.G = generator(input_dim=self.z_dim, output_dim=self.input_size)
         self.G_optimizer = optim.Adam(self.G.parameters(), lr=args.lrG, betas=(args.beta1, args.beta2))
-
+        #self.G_optimizer = optim.SGD(self.G.parameters(), lr=args.lrG, momentum=0.5)
+        #TORCH_USE_CUDA_DSA=1
         if self.gpu_mode:
             self.G.cuda()
             self.D.cuda()
-            self.BCE_loss = nn.BCELoss().cuda()
+            self.BCE_loss = nn.BCEWithLogitsLoss().cuda()
         else:
-            self.BCE_loss = nn.BCELoss()
-
+            self.BCE_loss = nn.BCEWithLogitsLoss()
+        self.BCE_loss = nn.BCEWithLogitsLoss()
         print('---------- Networks architecture -------------')
         print_network(self.G)
         print_network(self.D)
@@ -187,13 +170,17 @@ class GANish(object):
         if self.gpu_mode:
             self.sample_z_ = self.sample_z_.cuda()
 
-def train(self):
+    def sigmoid(self, z):
+        return 1/(1+np.exp(-z))
+    def train(self):
         self.train_hist = {}
         self.train_hist['G_loss'] = []
         self.train_hist['per_epoch_time'] = []
         self.train_hist['total_time'] = []
 
-        target = torch.tensor(self.gen_target)
+        #target = torch.tensor(self.gen_target)
+        target = torch.ones(self.batch_size, 10) * self.gen_target
+
         if self.gpu_mode: 
           target = target.cuda()
 
@@ -204,15 +191,19 @@ def train(self):
             self.G.train()
             epoch_start_time = time.time()
             z_ = torch.rand((self.batch_size, self.z_dim))
+
             if self.gpu_mode:
                 z_ = z_.cuda()
-
+            
             # Update G network
             self.G_optimizer.zero_grad()
 
             G_ = self.G(z_)
             D_fake = self.D(G_)
-            G_loss = self.Loss(D_fake.squeeze(), target)
+            #print("D",D_fake)
+            D_fake=D_fake.squeeze()
+            #print("new D ",D_fake)
+            G_loss = self.BCE_loss(D_fake,target)
 
             self.train_hist['G_loss'].append(G_loss.item())
 
@@ -228,15 +219,16 @@ def train(self):
               self.epoch, self.train_hist['total_time'][0]))
         print("Training finish!... save training results")
         self.save()
-        generate_animation(self.result_dir + '/' + self.model_name + '/' + self.model_name,  self.epoch )
+        #generate_animation(self.result_dir + '/' + self.model_name + '/' + self.model_name,  self.epoch )
         loss_plot(self.train_hist, os.path.join(self.save_dir, self.model_name), self.model_name)
 
-def visualize_results(self, epoch, fix=True):
+    def visualize_results(self, epoch, fix=True):
         self.G.eval()
         if not os.path.exists(self.result_dir + '/' + self.model_name):
             os.makedirs(self.result_dir + '/' + self.model_name)
 
-        tot_num_samples = 20
+        #tot_num_samples = 20
+        tot_num_samples = 1
 
         image_frame_dim = int(np.floor(np.sqrt(tot_num_samples)))
 
@@ -246,192 +238,22 @@ def visualize_results(self, epoch, fix=True):
         else:
             """ random noise """
             sample_z_ = torch.rand((self.batch_size, self.z_dim))
+
             if self.gpu_mode:
                 sample_z_ = sample_z_.cuda()
 
             samples = self.G(sample_z_)
-
         if self.gpu_mode:
-            samples = samples.cpu().data.numpy().transpose(0, 2, 3, 1)
+            samples = samples.cpu().data.numpy().transpose(0, 2, 1)
+            samples = np.expand_dims(samples, axis=-1)
         else:
-            samples = samples.data.numpy().transpose(0, 2, 3, 1)
-
+            samples = samples.data.numpy().transpose(0, 2, 1)
+            samples = np.expand_dims(samples, axis=-1)
         samples = (samples + 1) / 2
         save_images(samples[:image_frame_dim * image_frame_dim, :, :, :], [image_frame_dim, image_frame_dim],
                           self.result_dir + '/' + self.model_name + '/' + self.model_name + '_epoch%03d' % epoch + '.png')
-def save(self):
-        save_dir = os.path.join(self.save_dir, self.model_name)
-
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-
-        torch.save(self.G.state_dict(), os.path.join(save_dir, self.model_name + '_G.pkl'))
-        torch.save(self.D.state_dict(), os.path.join(save_dir, self.model_name + '_D.pkl'))
-
-        with open(os.path.join(save_dir, self.model_name + '_history.pkl'), 'wb') as f:
-            pickle.dump(self.train_hist, f)
-def load(self):
-        save_dir = os.path.join(self.save_dir, self.model_name)
-
-        self.G.load_state_dict(torch.load(os.path.join(save_dir, self.model_name + '_G.pkl')))
-        self.D.load_state_dict(torch.load(os.path.join(save_dir, self.model_name + '_D.pkl')))
-
-"""
-
-class GANish(object):
-    def __init__(self, args):
-        # parameters
-        self.batch_size = args.batch_size
-        self.epoch = args.epoch
-        self.save_dir = args.save_dir
-        self.result_dir = args.result_dir
-        self.log_dir = args.log_dir
-        self.gpu_mode = args.gpu_mode
-        self.model_name = args.gan_type + '_' + str(args.batch_size)
-        self.input_size = args.input_size
-        self.z_dim = 62
-        self.gen_target= args.gen_target
-
-        ## Load a TRAINED classifier here. 
-        self.D = discriminator 
-
-        # networks init
-        self.G = generator(input_dim=self.z_dim, output_dim=1, input_size=self.input_size, batch_size=self.batch_size)
-        self.G_optimizer = optim.Adam(self.G.parameters(), lr=args.lrG, betas=(args.beta1, args.beta2))
-
-        if self.gpu_mode:
-            self.G.cuda()
-            self.D.cuda()
-            ## Pick a loss here. 
-            self.Loss  = ## 
-        else:
-            ## Same loss here but no cuda. 
-            self.Loss  = ## 
-
-        print('---------- Networks architecture -------------')
-        print_network(self.G)
-        print_network(self.D)
-        print('-----------------------------------------------')
-
-
-        # Fixed noise
-        ## This is the input to the generator -- you can change shape if you feel like. 
-        ## Should be batch_size x z_dim
-        torch.manual_seed( 20 ) 
-        self.sample_z_ = torch.rand((self.batch_size, self.z_dim))
-        if self.gpu_mode:
-            self.sample_z_ = self.sample_z_.cuda()
-
-
-    def train(self):
-        self.train_hist = {}
-        self.train_hist['G_loss'] = []
-        self.train_hist['per_epoch_time'] = []
-        self.train_hist['total_time'] = []
-
-        ## This is what we want to generate (0 to 9 in the FMNIST dataset).
-        target = # Set this to an array which defines the output class based on what you want to generate. 
-        if self.gpu_mode: 
-          target = target.cuda()
-
-        print('Training start!!')
-        start_time = time.time()
-        for epoch in range(self.epoch):
-            self.save()     ## Helper function will save this for you. 
-            self.G.train()  ## Set the generator to "train". 
-            epoch_start_time = time.time()
-
-            ## Create the input noise - keep this the same dimentions as above. 
-            ## Should be batch_size x z_dim
-            z_ = torch.rand((self.batch_size, self.z_dim))
-            if self.gpu_mode:
-                z_ = z_.cuda()
-
-            ## -------------------------------------------------------------------------- ##
-            ##                            Add your code here                              ##
-            ## -------------------------------------------------------------------------- ##
-
-            ## Zero grad the Generator's optimizer.
-            
-
-            ## First the forward step (Generate some image).
-            G_     = # 
-            ## Now predict the category using the discriminator (the classifier you have).
-            D_fake = # 
-            ## The loss is how far the prediction was from what it should be 
-            ## -- You have a target (defined above) based on the image you are generating. 
-            ## -- D_fake is what you got as the class of the fake image.
-            G_loss = # 
-
-            ## Save the loss for inspection here. Change from .item() to whatever else depending on what you are saving.
-            self.train_hist['G_loss'].append(G_loss.item())
-
-            ## Backwards on Generator (not classifier)
-            
-
-            ## Step through the optimizer on the Genrator 
-
-  
-            ## -------------------------------------------------------------------------- ##
-            ##                    No changes required below this                          ##
-            ## -------------------------------------------------------------------------- ##
-          
-
-            ## Save stuff here. 
-            self.train_hist['per_epoch_time'].append(time.time() - epoch_start_time)
-            with torch.no_grad():
-                ## This will save the image to the correct folder. [If this does not work, make sure self.G(self.sample_z_) is generating an image]
-                self.visualize_results((epoch+1), fix=False)
-
-        ## Some stats here. 
-        self.train_hist['total_time'].append(time.time() - start_time)
-        print("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(self.train_hist['per_epoch_time']),
-              self.epoch, self.train_hist['total_time'][0]))
-        print("Training finish!... save training results")
-
-        ## Save both models (You don't need the discriminator, that was not updated)
-        self.save()
-
-        ## This will create a cool gif for you. 
-        generate_animation(self.result_dir + '/' + self.model_name + '/' + self.model_name,  self.epoch )
-
-        ## Plot the loss [Use this to determine how much training is required]
-        loss_plot(self.train_hist, os.path.join(self.save_dir, self.model_name), self.model_name)
-
-
-    ## Helper functions. 
-    def visualize_results(self, epoch, fix=True):
-        self.G.eval()
-        if not os.path.exists(self.result_dir + '/' + self.model_name):
-            os.makedirs(self.result_dir + '/' + self.model_name)
-
-        tot_num_samples = 20
-
-        image_frame_dim = int(np.floor(np.sqrt(tot_num_samples)))
-
-        if fix:
-            
-            samples = self.G(self.sample_z_)
-        else:
-            
-            sample_z_ = torch.rand((self.batch_size, self.z_dim))
-            if self.gpu_mode:
-                sample_z_ = sample_z_.cuda()
-
-            samples = self.G(sample_z_)
-
-        if self.gpu_mode:
-            samples = samples.cpu().data.numpy().transpose(0, 2, 3, 1)
-        else:
-            samples = samples.data.numpy().transpose(0, 2, 3, 1)
-
-        samples = (samples + 1) / 2
-        save_images(samples[:image_frame_dim * image_frame_dim, :, :, :], [image_frame_dim, image_frame_dim],
-                          self.result_dir + '/' + self.model_name + '/' + self.model_name + '_epoch%03d' % epoch + '.png')
-
     def save(self):
         save_dir = os.path.join(self.save_dir, self.model_name)
-
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
@@ -440,183 +262,13 @@ class GANish(object):
 
         with open(os.path.join(save_dir, self.model_name + '_history.pkl'), 'wb') as f:
             pickle.dump(self.train_hist, f)
-
     def load(self):
         save_dir = os.path.join(self.save_dir, self.model_name)
 
         self.G.load_state_dict(torch.load(os.path.join(save_dir, self.model_name + '_G.pkl')))
         self.D.load_state_dict(torch.load(os.path.join(save_dir, self.model_name + '_D.pkl')))
-# This is the main trainer class that will generate the image.
-
-class GANish(object):
-    def __init__(self, args):
-        # parameters
-        self.batch_size = args.batch_size
-        self.epoch = args.epoch
-        self.save_dir = args.save_dir
-        self.result_dir = args.result_dir
-        self.log_dir = args.log_dir
-        self.gpu_mode = args.gpu_mode
-        self.model_name = args.gan_type + '_' + str(args.batch_size)
-        self.input_size = args.input_size
-        self.z_dim = 62
-        self.gen_target= args.gen_target
-
-        ## Load a TRAINED classifier here. 
-        self.D = discriminator 
-
-        # networks init
-        self.G = generator(input_dim=self.z_dim, output_dim=1, input_size=self.input_size, batch_size=self.batch_size)
-        self.G_optimizer = optim.Adam(self.G.parameters(), lr=args.lrG, betas=(args.beta1, args.beta2))
-
-        if self.gpu_mode:
-            self.G.cuda()
-            self.D.cuda()
-            ## Pick a loss here. 
-            self.Loss  = ## 
-        else:
-            ## Same loss here but no cuda. 
-            self.Loss  = ## 
-
-        print('---------- Networks architecture -------------')
-        print_network(self.G)
-        print_network(self.D)
-        print('-----------------------------------------------')
 
 
-        # Fixed noise
-        ## This is the input to the generator -- you can change shape if you feel like. 
-        ## Should be batch_size x z_dim
-        torch.manual_seed( 20 ) 
-        self.sample_z_ = torch.rand((self.batch_size, self.z_dim))
-        if self.gpu_mode:
-            self.sample_z_ = self.sample_z_.cuda()
-
-
-    def train(self):
-        self.train_hist = {}
-        self.train_hist['G_loss'] = []
-        self.train_hist['per_epoch_time'] = []
-        self.train_hist['total_time'] = []
-
-        ## This is what we want to generate (0 to 9 in the FMNIST dataset).
-        target = # Set this to an array which defines the output class based on what you want to generate. 
-        if self.gpu_mode: 
-          target = target.cuda()
-
-        print('Training start!!')
-        start_time = time.time()
-        for epoch in range(self.epoch):
-            self.save()     ## Helper function will save this for you. 
-            self.G.train()  ## Set the generator to "train". 
-            epoch_start_time = time.time()
-
-            ## Create the input noise - keep this the same dimentions as above. 
-            ## Should be batch_size x z_dim
-            z_ = torch.rand((self.batch_size, self.z_dim))
-            if self.gpu_mode:
-                z_ = z_.cuda()
-
-            ## -------------------------------------------------------------------------- ##
-            ##                            Add your code here                              ##
-            ## -------------------------------------------------------------------------- ##
-
-            ## Zero grad the Generator's optimizer.
-            
-
-            ## First the forward step (Generate some image).
-            G_     = # 
-            ## Now predict the category using the discriminator (the classifier you have).
-            D_fake = # 
-            ## The loss is how far the prediction was from what it should be 
-            ## -- You have a target (defined above) based on the image you are generating. 
-            ## -- D_fake is what you got as the class of the fake image.
-            G_loss = # 
-
-            ## Save the loss for inspection here. Change from .item() to whatever else depending on what you are saving.
-            self.train_hist['G_loss'].append(G_loss.item())
-
-            ## Backwards on Generator (not classifier)
-            
-
-            ## Step through the optimizer on the Genrator 
-
-  
-            ## -------------------------------------------------------------------------- ##
-            ##                    No changes required below this                          ##
-            ## -------------------------------------------------------------------------- ##
-          
-
-            ## Save stuff here. 
-            self.train_hist['per_epoch_time'].append(time.time() - epoch_start_time)
-            with torch.no_grad():
-                ## This will save the image to the correct folder. [If this does not work, make sure self.G(self.sample_z_) is generating an image]
-                self.visualize_results((epoch+1), fix=False)
-
-        ## Some stats here. 
-        self.train_hist['total_time'].append(time.time() - start_time)
-        print("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(self.train_hist['per_epoch_time']),
-              self.epoch, self.train_hist['total_time'][0]))
-        print("Training finish!... save training results")
-
-        ## Save both models (You don't need the discriminator, that was not updated)
-        self.save()
-
-        ## This will create a cool gif for you. 
-        generate_animation(self.result_dir + '/' + self.model_name + '/' + self.model_name,  self.epoch )
-
-        ## Plot the loss [Use this to determine how much training is required]
-        loss_plot(self.train_hist, os.path.join(self.save_dir, self.model_name), self.model_name)
-
-
-
-    ## Helper functions. 
-    def visualize_results(self, epoch, fix=True):
-        self.G.eval()
-        if not os.path.exists(self.result_dir + '/' + self.model_name):
-            os.makedirs(self.result_dir + '/' + self.model_name)
-
-        tot_num_samples = 20
-
-        image_frame_dim = int(np.floor(np.sqrt(tot_num_samples)))
-
-        if fix:
-            samples = self.G(self.sample_z_)
-        else:
-
-            sample_z_ = torch.rand((self.batch_size, self.z_dim))
-            if self.gpu_mode:
-                sample_z_ = sample_z_.cuda()
-
-            samples = self.G(sample_z_)
-
-        if self.gpu_mode:
-            samples = samples.cpu().data.numpy().transpose(0, 2, 3, 1)
-        else:
-            samples = samples.data.numpy().transpose(0, 2, 3, 1)
-
-        samples = (samples + 1) / 2
-        save_images(samples[:image_frame_dim * image_frame_dim, :, :, :], [image_frame_dim, image_frame_dim],
-                          self.result_dir + '/' + self.model_name + '/' + self.model_name + '_epoch%03d' % epoch + '.png')
-
-    def save(self):
-        save_dir = os.path.join(self.save_dir, self.model_name)
-
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-
-        torch.save(self.G.state_dict(), os.path.join(save_dir, self.model_name + '_G.pkl'))
-        torch.save(self.D.state_dict(), os.path.join(save_dir, self.model_name + '_D.pkl'))
-
-        with open(os.path.join(save_dir, self.model_name + '_history.pkl'), 'wb') as f:
-            pickle.dump(self.train_hist, f)
-
-    def load(self):
-        save_dir = os.path.join(self.save_dir, self.model_name)
-
-        self.G.load_state_dict(torch.load(os.path.join(save_dir, self.model_name + '_G.pkl')))
-        self.D.load_state_dict(torch.load(os.path.join(save_dir, self.model_name + '_D.pkl')))
-"""
 
 
 
@@ -640,7 +292,7 @@ def parse_args():
     parser.add_argument('--beta2', type=float, default=0.999)
     parser.add_argument('--gpu_mode', type=bool, default=True)
     parser.add_argument('--benchmark_mode', type=bool, default=True)
-    parser.add_argument('--gen_target', type=int, default=1)
+    parser.add_argument('--gen_target', type=int, default=9)
 
     return check_args(parser.parse_args(args=[]))
 

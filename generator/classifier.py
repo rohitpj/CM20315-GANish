@@ -31,23 +31,21 @@ validloader = torch.utils.data.DataLoader(trainset, sampler=valid_sample, batch_
 testloader  = torch.utils.data.DataLoader(testset, batch_size=64, shuffle=True)
 
 class Classifier(nn.Module):
-  def __init__(self):
-    super().__init__()
-    self.fc1 = nn.Linear(784, 120)
-    self.fc2 = nn.Linear(120, 120)
-    self.fc3 = nn.Linear(120,10)
-    #self.fc4 = nn.Linear(64,10)
-    #defining the 20% dropout
-    self.dropout = nn.Dropout(0.2)
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(784, 256)
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, 10)
+        #defining the 30% dropout
+        self.dropout = nn.Dropout(0.3)
 
-  def forward(self,x):
-    x = x.view(x.shape[0],-1)
-    x = self.dropout(F.relu(self.fc1(x)))
-    x = self.dropout(F.relu(self.fc2(x)))
-    #x = self.dropout(F.relu(self.fc3(x)))
-    #not using dropout on output layer
-    x = F.log_softmax(self.fc3(x), dim=1)
-    return x   
+    def forward(self, x):
+        x = x.view(x.shape[0], -1)
+        x = self.dropout(F.leaky_relu(self.fc1(x)))
+        x = self.dropout(F.leaky_relu(self.fc2(x)))
+        #not using dropout on output layer
+        x = F.log_softmax(self.fc3(x), dim=1)
+        return x 
 
 model = Classifier()
 #defining the loss function
